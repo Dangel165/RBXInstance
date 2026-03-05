@@ -13,6 +13,7 @@
     <Description>Roblox Multi-Instance Tool</Description>
     <Copyright>Copyright © 2026 Dangel</Copyright>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>1685562.ico</ApplicationIcon>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
@@ -20,5 +21,9 @@
     <DebugSymbols>false</DebugSymbols>
     <Optimize>true</Optimize>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="1685562.ico" />
+  </ItemGroup>
 
 </Project>

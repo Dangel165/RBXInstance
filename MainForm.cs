@@ -32,9 +32,37 @@ namespace RobloxMultiLauncher
 
             if (!createdNew)
             {
-                MessageBox.Show("이미 다른 Roblox 또는 세션 언락커가 실행 중입니다.\n모든 관련 프로그램을 종료 후 다시 시도해주세요.", 
-                    "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                this.Close();
+                var result = MessageBox.Show(
+                    "이미 다른 Roblox 또는 세션 언락커가 실행 중입니다.\n\n" +
+                    "모든 Roblox 프로세스를 종료하시겠습니까?", 
+                    "오류", 
+                    MessageBoxButtons.YesNo, 
+                    MessageBoxIcon.Error);
+                
+                if (result == DialogResult.Yes)
+                {
+                    RunKillRobloxBat();
+                    
+                    // Try to create mutex again after killing processes
+                    Thread.Sleep(2000);
+                    mutex = new Mutex(true, MutexName, out createdNew);
+                    
+                    if (!createdNew)
+                    {
+                        MessageBox.Show("프로세스 종료 후에도 뮤텍스를 생성할 수 없습니다.\n프로그램을 종료합니다.", 
+                            "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        this.Close();
+                    }
+                    else
+                    {
+                        MessageBox.Show("프로세스가 종료되었습니다.\n이제 정상적으로 사용할 수 있습니다.", 
+                            "성공", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                }
+                else
+                {
+                    this.Close();
+                }
             }
         }
 
@@ -83,8 +111,8 @@ namespace RobloxMultiLauncher
 
             if (result == DialogResult.Yes)
             {
-                // Kill all Roblox processes
-                KillRobloxProcesses();
+                // Kill all Roblox processes using the bat file
+                RunKillRobloxBat();
 
                 isActivated = false;
                 lblStatus.Text = "비활성화됨";
@@ -120,6 +148,66 @@ namespace RobloxMultiLauncher
                 }
             }
             catch { }
+        }
+
+        private void RunKillRobloxBat()
+        {
+            try
+            {
+                string batPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "kill_roblox.bat");
+                
+                // If kill_roblox.bat doesn't exist in the current directory, try parent directory
+                if (!System.IO.File.Exists(batPath))
+                {
+                    string? parentDir = System.IO.Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory)?.FullName;
+                    if (parentDir != null)
+                    {
+                        batPath = System.IO.Path.Combine(parentDir, "kill_roblox.bat");
+                    }
+                }
+
+                if (System.IO.File.Exists(batPath))
+                {
+                    var processInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = batPath,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
+                    };
+
+                    var process = System.Diagnostics.Process.Start(processInfo);
+                    if (process != null)
+                    {
+                        process.WaitForExit(10000); // Wait max 10 seconds
+                    }
+                }
+                else
+                {
+                    // Fallback to manual process killing if bat file not found
+                    KillRobloxProcesses();
+                    
+                    // Also kill RBXInstance processes
+                    var rbxProcesses = System.Diagnostics.Process.GetProcessesByName("RBXInstance");
+                    foreach (var process in rbxProcesses)
+                    {
+                        try
+                        {
+                            if (process.Id != System.Diagnostics.Process.GetCurrentProcess().Id)
+                            {
+                                process.Kill();
+                                process.WaitForExit(1000);
+                            }
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"프로세스 종료 중 오류가 발생했습니다: {ex.Message}", 
+                    "오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         protected override void Dispose(bool disposing)
